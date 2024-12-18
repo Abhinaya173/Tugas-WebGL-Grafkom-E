@@ -168,4 +168,4 @@ async function main() {
   requestAnimationFrame(render);
 }
 
-main();
+export default main();
