@@ -1,0 +1,32 @@
+body { 
+    margin: 0; 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #f4f4f4;
+}
+.container {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+    width: 100%;
+}
+.left {
+    flex: 1;
+    text-align: center;
+}
+.right {
+    flex: 1;
+    text-align: center;
+}
+canvas {
+    border: 3px solid black;
+    display: block;
+    margin: auto;
+}
+h1, h2 {
+    font-family: Arial, sans-serif;
+    margin: 10px 0;
+}
