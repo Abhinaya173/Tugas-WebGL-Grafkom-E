@@ -4,14 +4,12 @@ import { vs, fs } from '/shaders.js';
 import { parseOBJ, parseMTL } from '/parse.js';
 
 async function main() {
-  // Get A WebGL context
   /** @type {HTMLCanvasElement} */
-  const canvas = document.querySelector("#canvas");
+  const canvas = document.getElementById("canvas");
   const gl = canvas.getContext("webgl");
   if (!gl) {
     return;
   }
-
 
   // compiles and links the shaders, looks up attribute and uniform locations
   const meshProgramInfo = webglUtils.createProgramInfo(gl, [vs, fs]);
@@ -37,7 +35,6 @@ async function main() {
   };
 
   const parts = obj.geometries.map(({material, data}) => {
-
     if (data.color) {
       if (data.position.length === data.color.length) {
         // it's 3. The our helper library assumes 4 so we need
@@ -53,7 +50,7 @@ async function main() {
     // gl.createBuffer, gl.bindBuffer, gl.bufferData
     const bufferInfo = webglUtils.createBufferInfoFromArrays(gl, data);
     return {
-      material: materials[material],
+      material: materials[material] || defaultMaterial,
       bufferInfo,
     };
   });
@@ -98,11 +95,10 @@ async function main() {
   const radius = m4.length(range) * 1.2;
   const cameraPosition = m4.addVectors(cameraTarget, [
     0,
-    radius / 5,
+    0,
     radius,
   ]);
-  // Set zNear and zFar to something hopefully appropriate
-  // for the size of this object.
+  
   const zNear = radius / 100;
   const zFar = radius * 3;
 
@@ -111,11 +107,12 @@ async function main() {
   }
 
   function render(time) {
-    time *= 0.001;  // convert to seconds
-
+    time *= 0.001;
     webglUtils.resizeCanvasToDisplaySize(gl.canvas);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.CULL_FACE);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     const fieldOfViewRadians = degToRad(60);
     const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
@@ -133,39 +130,50 @@ async function main() {
       u_view: view,
       u_projection: projection,
       u_viewWorldPosition: cameraPosition,
+      u_ambientLight: [0.2, 0.2, 0.2],
     };
 
     gl.useProgram(meshProgramInfo.program);
 
-    // calls gl.uniform
     webglUtils.setUniforms(meshProgramInfo, sharedUniforms);
 
-    // compute the world matrix once since all parts
-    // are at the same space.
-    let u_world = m4.identity(); // Start with the identity matrix
-
-    // Apply rotations
-    u_world = m4.multiply(u_world, m4.yRotation(time)); // Rotate around Y
-    u_world = m4.multiply(u_world, m4.xRotation(time)); // Rotate around X
-    //u_world = m4.multiply(u_world, m4.zRotation(time)); // Rotate around Z
-
-    // Apply translation
+    let u_world = m4.yRotation(time);
     u_world = m4.translate(u_world, ...objOffset);
 
     for (const {bufferInfo, material} of parts) {
-      // calls gl.bindBuffer, gl.enableVertexAttribArray, gl.vertexAttribPointer
       webglUtils.setBuffersAndAttributes(gl, meshProgramInfo, bufferInfo);
-      // calls gl.uniform
+      
+      // Prepare material uniforms
+      const materialUniforms = {
+        diffuse: material.diffuse || [1, 1, 1],
+        ambient: material.ambient || [0, 0, 0],
+        specular: material.specular || [1, 1, 1],
+        shininess: material.shininess || 400,
+        opacity: material.opacity || 1,
+      };
+
       webglUtils.setUniforms(meshProgramInfo, {
         u_world,
-      }, material);
-      // calls gl.drawArrays or gl.drawElements
+        ...materialUniforms,
+      });
+
       webglUtils.drawBufferInfo(gl, bufferInfo);
     }
 
     requestAnimationFrame(render);
   }
+  
   requestAnimationFrame(render);
 }
 
-export default main();
+main().catch(console.error);
+
+window.addEventListener('load', () => {
+  if (window.webglUtils && window.m4) {
+    main();
+  } else {
+    console.error('Required WebGL utility libraries are not loaded.');
+  }
+});
+
+export default main;
